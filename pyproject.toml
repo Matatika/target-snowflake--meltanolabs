@@ -4,6 +4,7 @@ version = "0.0.0"
 description = "Singer target for Snowflake, built with the Meltano SDK for Singer Targets."
 readme = "README.md"
 authors = ["Ken Payne"]
+maintainers = ["Meltano Team and Community <hello@meltano.com>"]
 keywords = [
     "ELT",
     "Snowflake",
@@ -14,14 +15,14 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8"
-cryptography = ">=40,<44"
-snowflake-sqlalchemy = "~=1.6.1"
+python = ">=3.9"
+cryptography = ">=40"
+snowflake-sqlalchemy = "==1.7.3"
 snowflake-connector-python = { version = "<4.0.0", extras = ["secure-local-storage"] }
 sqlalchemy = "~=2.0.31"
 
 [tool.poetry.dependencies.singer-sdk]
-version = "~=0.41.0"
+version = "~=0.44.0"
 
 [tool.poetry.group.dev.dependencies]
 coverage = ">=7.2.7"
@@ -29,18 +30,16 @@ pytest = ">=7.4.3"
 pytest-xdist = ">=3.3.1"
 
 [tool.poetry.group.dev.dependencies.singer-sdk]
-version="~=0.41.0"
+version="~=0.44.0"
 extras = ["testing"]
 
 [tool.ruff]
 line-length = 120
 src = ["target_snowflake"]
-target-version = "py38"
+target-version = "py39"
 
 [tool.ruff.lint]
 ignore = [
-    "ANN101",  # missing-type-self
-    "ANN102",  # missing-type-cls
     "ANN201",
     "TD",
     "D",
