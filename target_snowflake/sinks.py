@@ -7,6 +7,7 @@ import typing as t
 from urllib.parse import urlparse
 from uuid import uuid4
 
+import humps
 from singer_sdk.batch import JSONLinesBatcher
 from singer_sdk.helpers._batch import (
     BaseBatchFileEncoding,
@@ -99,6 +100,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         name: str,
         object_type: str | None = None,
     ) -> str:
+        name = humps.decamelize(name)
         if object_type and object_type != "column":
             return super().conform_name(name=name, object_type=object_type)
         formatter = SnowflakeIdentifierPreparer(SnowflakeDialect())
