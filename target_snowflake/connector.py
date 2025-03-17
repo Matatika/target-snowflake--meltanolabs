@@ -6,6 +6,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import humps
 import snowflake.sqlalchemy.custom_types as sct
 import sqlalchemy
 from cryptography.hazmat.backends import default_backend
@@ -338,9 +339,9 @@ class SnowflakeConnector(SQLConnector):
         column_selections = []
         for property_name, property_def in schema["properties"].items():
             clean_property_name = formatter.format_collation(property_name)
-            clean_alias = clean_property_name
-            if '"' in clean_property_name:
-                clean_alias = clean_property_name.upper()
+            clean_alias = humps.decamelize(clean_property_name)
+            if '"' in clean_alias:
+                clean_alias = clean_alias.upper()
             column_selections.append(
                 {
                     "clean_property_name": clean_property_name,
@@ -367,8 +368,8 @@ class SnowflakeConnector(SQLConnector):
         )
 
         # use UPPER from here onwards
-        formatted_properties = [formatter.format_collation(col) for col in schema["properties"]]
-        formatted_key_properties = [formatter.format_collation(col) for col in key_properties]
+        formatted_properties = [humps.decamelize(formatter.format_collation(col)) for col in schema["properties"]]
+        formatted_key_properties = [humps.decamelize(formatter.format_collation(col)) for col in key_properties]
         join_expr = " and ".join(
             [f"d.{key} = s.{key}" for key in formatted_key_properties],
         )
