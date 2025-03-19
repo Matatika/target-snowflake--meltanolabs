@@ -18,6 +18,7 @@ from snowflake.sqlalchemy import URL
 from snowflake.sqlalchemy.base import SnowflakeIdentifierPreparer
 from snowflake.sqlalchemy.snowdialect import SnowflakeDialect
 from sqlalchemy.sql import text
+from sqlalchemy.sql.compiler import RESERVED_WORDS as DEFAULT_RESERVED_WORDS
 
 from target_snowflake.snowflake_types import NUMBER, TIMESTAMP_NTZ, VARIANT
 
@@ -204,6 +205,7 @@ class SnowflakeConnector(SQLConnector):
             connect_args=connect_args,
             echo=False,
         )
+        engine.dialect.identifier_preparer.reserved_words |= DEFAULT_RESERVED_WORDS
         with engine.connect() as conn:
             db_names = [db[1] for db in conn.execute(text("SHOW DATABASES;")).fetchall()]
             if self.config["database"] not in db_names:
