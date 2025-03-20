@@ -16,8 +16,6 @@ from singer_sdk.helpers._batch import (
 )
 from singer_sdk.helpers._typing import conform_record_data_types
 from singer_sdk.sinks import SQLSink
-from snowflake.sqlalchemy.base import SnowflakeIdentifierPreparer
-from snowflake.sqlalchemy.snowdialect import SnowflakeDialect
 
 from target_snowflake.connector import SnowflakeConnector
 
