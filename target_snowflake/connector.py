@@ -343,9 +343,7 @@ class SnowflakeConnector(SQLConnector):
         column_selections = []
         for property_name, property_def in schema["properties"].items():
             clean_property_name = self.formatter.format_collation(property_name)
-            clean_alias = humps.decamelize(clean_property_name)
-            if '"' in clean_alias:
-                clean_alias = clean_alias.upper()
+            clean_alias = self.formatter.format_collation(humps.decamelize(property_name))
             column_selections.append(
                 {
                     "clean_property_name": clean_property_name,
