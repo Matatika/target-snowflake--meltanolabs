@@ -101,6 +101,8 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         object_type: str | None = None,
     ) -> str:
         name = humps.decamelize(name)
+        name = humps.dekebabize(name)
+
         if object_type and object_type != "column":
             return super().conform_name(name=name, object_type=object_type)
         if '"' not in self.connector.formatter.format_collation(name.lower()):

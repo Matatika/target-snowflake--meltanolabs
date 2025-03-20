@@ -343,7 +343,7 @@ class SnowflakeConnector(SQLConnector):
         column_selections = []
         for property_name, property_def in schema["properties"].items():
             clean_property_name = self.formatter.format_collation(property_name)
-            clean_alias = self.formatter.format_collation(humps.decamelize(property_name))
+            clean_alias = self._format_identifier(property_name)
             column_selections.append(
                 {
                     "clean_property_name": clean_property_name,
@@ -369,8 +369,8 @@ class SnowflakeConnector(SQLConnector):
         )
 
         # use UPPER from here onwards
-        formatted_properties = [c["clean_alias"] for c in column_selections]
-        formatted_key_properties = [self.formatter.format_collation(humps.decamelize(k)) for k in key_properties]
+        formatted_properties = [self._format_identifier(k) for k in schema["properties"]]
+        formatted_key_properties = [self._format_identifier(k) for k in key_properties]
 
         join_expr = " and ".join(
             [f"d.{key} = s.{key}" for key in formatted_key_properties],
@@ -648,3 +648,14 @@ class SnowflakeConnector(SQLConnector):
             delimiter=delimiter,
             dialect=self._dialect,
         )
+
+    def _format_identifier(self, identifier: str) -> str:
+        snake_case_identifier = humps.decamelize(identifier)
+
+        # substitute hyphens
+        snake_case_identifier = humps.dekebabize(snake_case_identifier)
+
+        # the following should only quote reserved keywords e.g. `desc` at this point
+        # as name should not contain mixed casing due to snake_case transformation (no
+        # need to quote)
+        return self.formatter.format_collation(snake_case_identifier)
