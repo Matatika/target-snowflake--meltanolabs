@@ -371,8 +371,9 @@ class SnowflakeConnector(SQLConnector):
         )
 
         # use UPPER from here onwards
-        formatted_properties = [humps.decamelize(self.formatter.format_collation(col)) for col in schema["properties"]]
-        formatted_key_properties = [humps.decamelize(self.formatter.format_collation(col)) for col in key_properties]
+        formatted_properties = [c["clean_alias"] for c in column_selections]
+        formatted_key_properties = [self.formatter.format_collation(humps.decamelize(k)) for k in key_properties]
+
         join_expr = " and ".join(
             [f"d.{key} = s.{key}" for key in formatted_key_properties],
         )
