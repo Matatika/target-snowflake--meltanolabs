@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import typing as t
 from urllib.parse import urlparse
 from uuid import uuid4
@@ -99,6 +100,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         name: str,
         object_type: str | None = None,
     ) -> str:
+        name = re.sub(r"[A-Z]{2,}", lambda match: match.group().lower(), name)
         name = humps.decamelize(name)
         name = humps.dekebabize(name)
 
