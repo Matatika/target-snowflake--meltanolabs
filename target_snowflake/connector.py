@@ -657,14 +657,14 @@ class SnowflakeConnector(SQLConnector):
         #
         # without: "TEST_streamName" -> "TES_T_stream_name"
         # with: "TEST_streamName" -> "test_stream_name"
-        identifier = re.sub(r"[A-Z]{2,}", lambda match: match.group().lower(), identifier)
+        formatted = re.sub(r"[A-Z]{2,}", lambda match: match.group().lower(), identifier)
 
-        snake_case_identifier = humps.decamelize(identifier)
+        formatted = humps.decamelize(formatted)
 
         # substitute hyphens
-        snake_case_identifier = humps.dekebabize(snake_case_identifier)
+        formatted = humps.dekebabize(formatted)
 
         # the following should only quote reserved keywords e.g. `desc` at this point
         # as name should not contain mixed casing due to snake_case transformation (no
         # need to quote)
-        return self.formatter.format_collation(snake_case_identifier)
+        return self.formatter.format_collation(formatted)
