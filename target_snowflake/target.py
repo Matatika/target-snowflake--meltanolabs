@@ -137,6 +137,12 @@ class TargetSnowflake(SQLTarget):
 
         return command
 
+    def _write_state_message(self, state):  # noqa: ANN001, ANN202
+        if not state:
+            return None
+
+        return super()._write_state_message(state)
+
 
 if __name__ == "__main__":
     TargetSnowflake.cli()
