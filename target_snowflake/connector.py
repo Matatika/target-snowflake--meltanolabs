@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 import urllib.parse
 from enum import Enum
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from warnings import warn
 
 import humps
 import snowflake.sqlalchemy.custom_types as sct
@@ -123,11 +126,31 @@ class SnowflakeConnector(SQLConnector):
         phrase = self.config.get("private_key_passphrase")
         encoded_passphrase = phrase.encode() if phrase else None
         if "private_key_path" in self.config:
-            with Path(self.config["private_key_path"]).open("rb") as key:
-                key_content = key.read()
+            self.logger.debug("Reading private key from file: %s", self.config["private_key_path"])
+            key_path = Path(self.config["private_key_path"])
+            if not key_path.is_file():
+                error_message = f"Private key file not found: {key_path}"
+                raise FileNotFoundError(error_message)
+            with key_path.open("rb") as key_file:
+                key_content = key_file.read()
         else:
-            key_content = self.config["private_key"].encode()
-
+            private_key = self.config["private_key"]
+            self.logger.debug("Reading private key from config")
+            if "-----BEGIN " in private_key:
+                warn(
+                    "Use base64 encoded private key instead of PEM format",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                self.logger.info("Private key is in PEM format")
+                key_content = private_key.encode()
+            else:
+                try:
+                    self.logger.debug("Private key is in base64 format")
+                    key_content = base64.b64decode(private_key)
+                except binascii.Error as e:
+                    error_message = f"Invalid private key format: {e}"
+                    raise ValueError(error_message) from e
         p_key = serialization.load_pem_private_key(
             key_content,
             password=encoded_passphrase,

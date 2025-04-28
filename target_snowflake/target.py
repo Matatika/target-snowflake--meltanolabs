@@ -2,12 +2,22 @@
 
 from __future__ import annotations
 
+import logging.config
+
 import click
 from singer_sdk import typing as th
 from singer_sdk.target_base import SQLTarget
 
 from target_snowflake.initializer import initializer
 from target_snowflake.sinks import SnowflakeSink
+
+logging.config.dictConfig(
+    {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "loggers": {"snowflake.connector": {"level": "WARNING"}},
+    },
+)
 
 
 class TargetSnowflake(SQLTarget):
@@ -36,8 +46,9 @@ class TargetSnowflake(SQLTarget):
             required=False,
             secret=True,
             description=(
-                "The private key contents. For KeyPair authentication either "
-                "private_key or private_key_path must be provided."
+                "The private key contents, in PEM or base64-encoding format. "
+                "For KeyPair authentication either `private_key` or `private_key_path` "
+                "must be provided."
             ),
         ),
         th.Property(
