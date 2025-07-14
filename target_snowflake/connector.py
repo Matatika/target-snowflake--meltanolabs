@@ -19,7 +19,12 @@ from snowflake.sqlalchemy.base import SnowflakeIdentifierPreparer
 from snowflake.sqlalchemy.snowdialect import SnowflakeDialect
 from sqlalchemy.sql import text
 
-from target_snowflake.snowflake_types import NUMBER, TIMESTAMP_NTZ, VARIANT
+from target_snowflake.snowflake_types import (
+    NUMBER,
+    TIMESTAMP_NTZ,
+    TIMESTAMP_TZ,
+    VARIANT,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
@@ -125,6 +130,9 @@ class SnowflakeConnector(SQLConnector):
 
     @staticmethod
     def _convert_type(sql_type):  # noqa: ANN205, ANN001
+        if isinstance(sql_type, sct.TIMESTAMP_TZ):
+            return TIMESTAMP_TZ
+
         if isinstance(sql_type, sct.TIMESTAMP_NTZ):
             return TIMESTAMP_NTZ
 
@@ -313,8 +321,7 @@ class SnowflakeConnector(SQLConnector):
             jsonschema_type["maxLength"] = SNOWFLAKE_MAX_STRING_LENGTH
         return jsonschema_type
 
-    @staticmethod
-    def to_sql_type(jsonschema_type: dict) -> sqlalchemy.types.TypeEngine:
+    def to_sql_type(self, jsonschema_type: dict) -> sqlalchemy.types.TypeEngine:
         """Return a JSON Schema representation of the provided type.
 
         Uses custom Snowflake types from [snowflake-sqlalchemy](https://github.com/snowflakedb/snowflake-sqlalchemy/blob/main/src/snowflake/sqlalchemy/custom_types.py)
@@ -333,7 +340,7 @@ class SnowflakeConnector(SQLConnector):
         maxlength = jsonschema_type.get("maxLength", SNOWFLAKE_MAX_STRING_LENGTH)
         # define type maps
         string_submaps = [
-            TypeMap(eq, TIMESTAMP_NTZ(), "date-time"),
+            TypeMap(eq, TIMESTAMP_TZ() if self.config["use_timestamp_tz"] else TIMESTAMP_NTZ(), "date-time"),
             TypeMap(contains, sqlalchemy.types.TIME(), "time"),
             TypeMap(eq, sqlalchemy.types.DATE(), "date"),
             TypeMap(eq, sqlalchemy.types.VARCHAR(maxlength), None),
