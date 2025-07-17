@@ -21,6 +21,7 @@ from sqlalchemy.sql import text
 
 from target_snowflake.snowflake_types import (
     NUMBER,
+    TIMESTAMP_LTZ,
     TIMESTAMP_NTZ,
     TIMESTAMP_TZ,
     VARIANT,
@@ -78,6 +79,19 @@ class SnowflakeAuthMethod(Enum):
     PASSWORD = 2
     KEY_PAIR = 3
 
+class SnowflakeTimestampType(str, Enum):
+    """Supported Snowflake timestamp types."""
+
+    TIMESTAMP_TZ = "TIMESTAMP_TZ"
+    TIMESTAMP_LTZ = "TIMESTAMP_LTZ"
+    TIMESTAMP_NTZ = "TIMESTAMP_NTZ"
+
+
+TIMESTAMP_TYPES = {
+    SnowflakeTimestampType.TIMESTAMP_TZ: TIMESTAMP_TZ,
+    SnowflakeTimestampType.TIMESTAMP_LTZ: TIMESTAMP_LTZ,
+    SnowflakeTimestampType.TIMESTAMP_NTZ: TIMESTAMP_NTZ,
+}
 
 class SnowflakeConnector(SQLConnector):
     """Snowflake Target Connector.
@@ -340,7 +354,7 @@ class SnowflakeConnector(SQLConnector):
         maxlength = jsonschema_type.get("maxLength", SNOWFLAKE_MAX_STRING_LENGTH)
         # define type maps
         string_submaps = [
-            TypeMap(eq, TIMESTAMP_TZ() if self.config["use_timestamp_tz"] else TIMESTAMP_NTZ(), "date-time"),
+            TypeMap(eq, TIMESTAMP_TYPES[self.config["timestamp_type"]](), "date-time"),
             TypeMap(contains, sqlalchemy.types.TIME(), "time"),
             TypeMap(eq, sqlalchemy.types.DATE(), "date"),
             TypeMap(eq, sqlalchemy.types.VARCHAR(maxlength), None),
