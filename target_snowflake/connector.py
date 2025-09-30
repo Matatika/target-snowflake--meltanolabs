@@ -681,6 +681,9 @@ class SnowflakeConnector(SQLConnector):
         )
 
     def _format_identifier(self, identifier: str) -> str:
+        if not self.config["normalise_casing"]:
+            return self.formatter.format_collation(identifier)
+
         # substrings of 2 or more upper-case characters need to be converted to
         # title-case to play nicely with proceeding `humps.decamelise` call and avoid
         # bad formatting

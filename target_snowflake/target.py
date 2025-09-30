@@ -119,6 +119,12 @@ class TargetSnowflake(SQLTarget):
                 "Whether letters in double-quoted object identifiers are stored and resolved as uppercase letters."
             ),
         ),
+        th.Property(
+            "normalise_casing",
+            th.BooleanType,
+            default=True,
+            description="Whether to normalise identifiers into snake_case.",
+        ),
     ).to_dict()
 
     default_sink_class = SnowflakeSink
