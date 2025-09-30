@@ -220,6 +220,9 @@ class SnowflakeConnector(SQLConnector):
             A new SQLAlchemy Engine.
         """
         connect_args = {
+            "session_parameters": {
+                "QUOTED_IDENTIFIERS_IGNORE_CASE": str(self.config["quoted_identifiers_ignore_case"]).upper(),
+            },
             "client_session_keep_alive": True,  # See https://github.com/snowflakedb/snowflake-connector-python/issues/218
         }
         if self.auth_method == SnowflakeAuthMethod.KEY_PAIR:

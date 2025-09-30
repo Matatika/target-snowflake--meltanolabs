@@ -111,6 +111,14 @@ class TargetSnowflake(SQLTarget):
             default=False,
             description="Whether to use SSO authentication using an external browser.",
         ),
+        th.Property(
+            "quoted_identifiers_ignore_case",
+            th.BooleanType,
+            default=False,
+            description=(
+                "Whether letters in double-quoted object identifiers are stored and resolved as uppercase letters."
+            ),
+        ),
     ).to_dict()
 
     default_sink_class = SnowflakeSink
