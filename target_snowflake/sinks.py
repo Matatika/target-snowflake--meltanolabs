@@ -100,16 +100,12 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         name: str,
         object_type: str | None = None,
     ) -> str:
-        if self.config["normalise_casing"]:
-            name = re.sub(r"[A-Z]{2,}", lambda match: match.group().lower(), name)
-            name = humps.decamelize(name)
-            name = humps.dekebabize(name)
-
         if object_type and object_type != "column":
-            return super().conform_name(name=name, object_type=object_type)
-        if '"' not in self.connector.formatter.format_collation(name.lower()):
+            name = super().conform_name(name=name, object_type=object_type)
+        elif '"' not in self.connector.formatter.format_collation(name.lower()):
             name = name.lower()
-        return name
+
+        return self.connector.format_identifier(name)
 
     def bulk_insert_records(
         self,

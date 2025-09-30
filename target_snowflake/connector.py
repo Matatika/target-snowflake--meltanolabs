@@ -370,7 +370,7 @@ class SnowflakeConnector(SQLConnector):
         column_selections = []
         for property_name, property_def in schema["properties"].items():
             clean_property_name = self.formatter.format_collation(property_name)
-            clean_alias = self._format_identifier(property_name)
+            clean_alias = self.format_identifier(property_name)
 
             if '"' in clean_property_name and self.config["quoted_identifiers_ignore_case"]:
                 clean_alias = clean_alias.upper()
@@ -400,8 +400,8 @@ class SnowflakeConnector(SQLConnector):
         )
 
         # use UPPER from here onwards
-        formatted_properties = [self._format_identifier(k) for k in schema["properties"]]
-        formatted_key_properties = [self._format_identifier(k) for k in key_properties]
+        formatted_properties = [self.format_identifier(k) for k in schema["properties"]]
+        formatted_key_properties = [self.format_identifier(k) for k in key_properties]
 
         join_expr = " and ".join(
             [f"d.{key} = s.{key}" for key in formatted_key_properties],
@@ -680,7 +680,7 @@ class SnowflakeConnector(SQLConnector):
             dialect=self._dialect,
         )
 
-    def _format_identifier(self, identifier: str) -> str:
+    def format_identifier(self, identifier: str) -> str:
         if not self.config["normalise_casing"]:
             return self.formatter.format_collation(identifier)
 
