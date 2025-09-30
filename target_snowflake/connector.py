@@ -371,6 +371,10 @@ class SnowflakeConnector(SQLConnector):
         for property_name, property_def in schema["properties"].items():
             clean_property_name = self.formatter.format_collation(property_name)
             clean_alias = self._format_identifier(property_name)
+
+            if '"' in clean_property_name and self.config["quoted_identifiers_ignore_case"]:
+                clean_alias = clean_alias.upper()
+
             column_selections.append(
                 {
                     "clean_property_name": clean_property_name,
