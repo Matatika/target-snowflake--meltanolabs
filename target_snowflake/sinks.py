@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import os
-import re
 import typing as t
 from urllib.parse import urlparse
 from uuid import uuid4
 
-import humps
 from singer_sdk.batch import JSONLinesBatcher
 from singer_sdk.helpers._batch import (
     BaseBatchFileEncoding,
