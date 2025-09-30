@@ -250,11 +250,7 @@ class SnowflakeConnector(SQLConnector):
         column_name: str,
         sql_type: sqlalchemy.types.TypeEngine,
     ) -> None:
-        # Make quoted column names upper case because we create them that way
-        # and the metadata that SQLAlchemy returns is case insensitive only for non-quoted
-        # column names so these will look like they dont exist yet.
-        if '"' in self.formatter.format_collation(column_name):
-            column_name = column_name.upper()
+        column_name = self.format_identifier(column_name)
 
         try:
             super().prepare_column(
@@ -335,11 +331,7 @@ class SnowflakeConnector(SQLConnector):
             return True
         schema_names = sqlalchemy.inspect(self._engine).get_schema_names()
         self.schema_cache = schema_names
-        # Make quoted schema names upper case because we create them that way
-        # and the metadata that SQLAlchemy returns is case insensitive only for
-        # non-quoted schema names so these will look like they dont exist yet.
-        if '"' in self.formatter.format_collation(schema_name):
-            schema_name = schema_name.upper()
+        schema_name = self.format_identifier(schema_name)
         return schema_name in schema_names
 
     # Custom SQL get methods
@@ -371,10 +363,6 @@ class SnowflakeConnector(SQLConnector):
         for property_name, property_def in schema["properties"].items():
             clean_property_name = self.formatter.format_collation(property_name)
             clean_alias = self.format_identifier(property_name)
-
-            if '"' in clean_property_name and self.config["quoted_identifiers_ignore_case"]:
-                clean_alias = clean_alias.upper()
-
             column_selections.append(
                 {
                     "clean_property_name": clean_property_name,
@@ -700,4 +688,12 @@ class SnowflakeConnector(SQLConnector):
         # the following should only quote reserved keywords e.g. `desc` at this point
         # as name should not contain mixed casing due to snake_case transformation (no
         # need to quote)
-        return self.formatter.format_collation(formatted)
+        formatted = self.formatter.format_collation(formatted)
+
+        if '"' in formatted and self.config["quoted_identifiers_ignore_case"]:
+            # Make quoted column names upper case because we create them that way
+            # and the metadata that SQLAlchemy returns is case insensitive only for non-quoted
+            # column names so these will look like they dont exist yet.
+            return formatted.upper()
+
+        return formatted

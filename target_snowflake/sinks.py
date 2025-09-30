@@ -100,12 +100,8 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         name: str,
         object_type: str | None = None,
     ) -> str:
-        if object_type and object_type != "column":
-            name = super().conform_name(name=name, object_type=object_type)
-        elif '"' not in self.connector.formatter.format_collation(name.lower()):
-            name = name.lower()
-
-        return self.connector.format_identifier(name)
+        name = super().conform_name(name=name, object_type=object_type)
+        return self.connector.format_identifier(name) if object_type == "column" else name
 
     def bulk_insert_records(
         self,
