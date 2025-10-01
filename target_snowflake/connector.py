@@ -700,26 +700,26 @@ class SnowflakeConnector(SQLConnector):
         )
 
     def format_identifier(self, identifier: str) -> str:
-        if not self.config["normalise_casing"]:
-            return self.formatter.format_collation(identifier)
+        if self.config["normalise_casing"]:
+            # substrings of 2 or more upper-case characters need to be converted to
+            # title-case to play nicely with proceeding `humps.decamelise` call and avoid
+            # bad formatting
+            #
+            # without: "TEST_streamName" -> "TES_T_stream_name"
+            # with: "TEST_streamName" -> "test_stream_name"
+            formatted = re.sub(r"[A-Z]{2,}", lambda match: match.group().lower(), identifier)
 
-        # substrings of 2 or more upper-case characters need to be converted to
-        # title-case to play nicely with proceeding `humps.decamelise` call and avoid
-        # bad formatting
-        #
-        # without: "TEST_streamName" -> "TES_T_stream_name"
-        # with: "TEST_streamName" -> "test_stream_name"
-        formatted = re.sub(r"[A-Z]{2,}", lambda match: match.group().lower(), identifier)
+            formatted = humps.decamelize(formatted)
 
-        formatted = humps.decamelize(formatted)
+            # substitute hyphens
+            formatted = humps.dekebabize(formatted)
 
-        # substitute hyphens
-        formatted = humps.dekebabize(formatted)
-
-        # the following should only quote reserved keywords e.g. `desc` at this point
-        # as name should not contain mixed casing due to snake_case transformation (no
-        # need to quote)
-        formatted = self.formatter.format_collation(formatted)
+            # the following should only quote reserved keywords e.g. `desc` at this point
+            # as name should not contain mixed casing due to snake_case transformation (no
+            # need to quote)
+            formatted = self.formatter.format_collation(formatted)
+        else:
+            formatted = self.formatter.format_collation(identifier)
 
         if '"' in formatted and self.config["quoted_identifiers_ignore_case"]:
             # Make quoted column names upper case because we create them that way
