@@ -355,6 +355,7 @@ class SnowflakeConnector(SQLConnector):
         to_sql.register_type_handler("array", VARIANT)
         to_sql.register_type_handler("number", sct.DOUBLE)
         to_sql.register_format_handler("date-time", TIMESTAMP_TYPES[self.config["timestamp_type"]])
+        to_sql.register_format_handler("uuid", lambda _: sct.STRING(36))  # a standard UUID string is 36 characters long
         return to_sql
 
     def schema_exists(self, schema_name: str) -> bool:

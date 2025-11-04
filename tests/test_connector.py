@@ -29,7 +29,7 @@ def connector():
         pytest.param({"type": ["boolean", "null"]}, sa.types.BOOLEAN, id="boolean"),
         pytest.param({"type": "string", "format": "time"}, sa.types.TIME, id="time"),
         pytest.param({"type": "string", "format": "date"}, sa.types.DATE, id="date"),
-        pytest.param({"type": "string", "format": "uuid"}, sa.types.UUID, id="uuid"),
+        pytest.param({"type": "string", "format": "uuid"}, sa.types.VARCHAR, id="uuid"),
     ],
 )
 def test_jsonschema_to_sql(connector: SnowflakeConnector, schema: dict, expected_type: type[sa.types.TypeEngine]):
@@ -89,6 +89,12 @@ def test_ipv6_format(connector: SnowflakeConnector):
     sql_type = connector.to_sql_type({"type": "string", "format": "ipv6"})
     assert isinstance(sql_type, sa.types.VARCHAR)
     assert sql_type.length == 45
+
+
+def test_uuid_format(connector: SnowflakeConnector):
+    sql_type = connector.to_sql_type({"type": "string", "format": "uuid"})
+    assert isinstance(sql_type, sa.types.VARCHAR)
+    assert sql_type.length == 36
 
 
 def test_singer_decimal(connector: SnowflakeConnector):
