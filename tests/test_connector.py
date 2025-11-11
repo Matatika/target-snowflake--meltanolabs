@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest import mock
+
 import pytest
 import snowflake.sqlalchemy.custom_types as sct
 import sqlalchemy as sa
@@ -12,7 +14,28 @@ from target_snowflake.snowflake_types import NUMBER, VARIANT
 
 @pytest.fixture
 def connector():
-    return SnowflakeConnector()
+    config = {
+        "user": "test_user",
+        "password": "test_password",
+        "account": "test_account",
+        "database": "TEST_DATABASE",
+        "timestamp_type": SnowflakeTimestampType.TIMESTAMP_NTZ,
+    }
+
+    return SnowflakeConnector(config=config)
+
+
+@pytest.fixture
+def mock_engine_connect(connector: SnowflakeConnector):
+    with mock.patch("sqlalchemy.engine.Engine.connect") as connect_mock:
+        connection = mock.MagicMock()
+        connection.execute.return_value.fetchall.return_value = [(None, connector.config["database"])]
+
+        context_manager = mock.MagicMock()
+        context_manager.__enter__.return_value = connection
+
+        connect_mock.return_value = context_manager
+        yield connect_mock
 
 
 @pytest.mark.parametrize(
@@ -109,3 +132,43 @@ def test_singer_decimal(connector: SnowflakeConnector):
     assert isinstance(sql_type, sa.types.DECIMAL)
     assert sql_type.precision == 38
     assert sql_type.scale == 18
+
+
+@pytest.mark.parametrize(
+    ("config", "identifier", "expected_formatted"),
+    [
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": False}, "email", "email"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": False}, "email_address", "email_address"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": False}, "emailAddress", "emailAddress"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": False}, "EmailAddress", "EmailAddress"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": False}, "EMAIL_ADDRESS", "EMAIL_ADDRESS"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": False}, "EMAILADDRESS", "EMAILADDRESS"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": False}, "user", "user"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "email", "email"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "email_address", "email_address"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "emailAddress", "emailaddress"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "EmailAddress", "emailaddress"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "EMAIL_ADDRESS", "email_address"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "EMAILADDRESS", "emailaddress"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "user", "user"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": False}, "email", "email"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": False}, "email_address", "email_address"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": False}, "emailAddress", "email_address"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": False}, "EmailAddress", "email_address"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": False}, "EMAIL_ADDRESS", "email_address"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": False}, "EMAILADDRESS", "emailaddress"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": False}, "user", "user"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "email", "email"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "email_address", "email_address"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "emailAddress", "email_address"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "EmailAddress", "email_address"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "EMAIL_ADDRESS", "email_address"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "EMAILADDRESS", "emailaddress"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "user", "user"),
+    ],
+)
+@pytest.mark.usefixtures("mock_engine_connect")
+def test_format_identifier(connector: SnowflakeConnector, config: dict, identifier: str, expected_formatted: str):
+    connector.config.update(config)
+    formatted = connector.format_identifier(identifier)
+    assert formatted == expected_formatted

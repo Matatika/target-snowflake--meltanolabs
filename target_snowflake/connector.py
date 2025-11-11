@@ -394,7 +394,7 @@ class SnowflakeConnector(SQLConnector):
         column_selections = []
         for property_name, property_def in schema["properties"].items():
             clean_property_name = self.formatter.format_collation(property_name)
-            clean_alias = self.format_identifier(property_name)
+            clean_alias = self.format_identifier(property_name, safe=True)
             column_selections.append(
                 {
                     "clean_property_name": clean_property_name,
@@ -419,9 +419,8 @@ class SnowflakeConnector(SQLConnector):
             "json_casting",
         )
 
-        # use UPPER from here onwards
-        formatted_properties = [self.format_identifier(k) for k in schema["properties"]]
-        formatted_key_properties = [self.format_identifier(k) for k in key_properties]
+        formatted_properties = [self.format_identifier(k, safe=True) for k in schema["properties"]]
+        formatted_key_properties = [self.format_identifier(k, safe=True) for k in key_properties]
 
         join_expr = " and ".join(
             [f"d.{key} = s.{key}" for key in formatted_key_properties],
@@ -700,7 +699,7 @@ class SnowflakeConnector(SQLConnector):
             dialect=self._dialect,
         )
 
-    def format_identifier(self, identifier: str) -> str:
+    def format_identifier(self, identifier: str, *, safe: bool = False) -> str:
         if self.config["normalise_casing"]:
             # substrings of 2 or more upper-case characters need to be converted to
             # title-case to play nicely with proceeding `humps.decamelise` call and avoid
@@ -718,14 +717,32 @@ class SnowflakeConnector(SQLConnector):
             # the following should only quote reserved keywords e.g. `desc` at this point
             # as name should not contain mixed casing due to snake_case transformation (no
             # need to quote)
-            formatted = self.formatter.format_collation(formatted)
         else:
-            formatted = self.formatter.format_collation(identifier)
+            formatted = identifier
 
-        if '"' in formatted and self.config["quoted_identifiers_ignore_case"]:
-            # Make quoted column names upper case because we create them that way
-            # and the metadata that SQLAlchemy returns is case insensitive only for non-quoted
-            # column names so these will look like they dont exist yet.
-            return formatted.upper()
+        safe_formatted = self.formatter.format_collation(formatted)
 
-        return formatted
+        if '"' not in safe_formatted or self.config["quoted_identifiers_ignore_case"]:
+            # Lowercase column names that are created in a case-insensitive manner, either instrinsically or when
+            # QUOTED_IDENTIFIERS_IGNORE_CASE is set to FALSE, to match their SQLAlchemy representation.
+            #
+            # > Snowflake stores all case-insensitive object names in uppercase text. In contrast, SQLAlchemy considers
+            # > all lowercase object names to be case-insensitive.
+            #
+            # https://docs.snowflake.com/en/developer-guide/python-connector/sqlalchemy#object-name-case-handling
+            #
+            # > Unquoted identifiers are stored and resolved in uppercase. Therefore, an unquoted identifier is
+            # > equivalent to a capitalized double-quoted identifier with the same name.
+            #
+            # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#unquoted-identifiers
+            #
+            # > To configure Snowflake to treat alphabetic characters in double-quoted identifiers as uppercase for the
+            # > session, set the parameter to TRUE for the session. With this setting, all alphabetical characters in
+            # > identifiers are stored and resolved as uppercase characters.
+            #
+            # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#controlling-case-using-the-quoted-identifiers-ignore-case-parameter
+
+            return formatted.lower()
+
+        # Identifiers that require quoting should be returned as-is when QUOTED_IDENTIFIERS_IGNORE_CASE is set to FALSE.
+        return safe_formatted if safe else formatted
