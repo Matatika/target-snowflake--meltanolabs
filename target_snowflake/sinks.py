@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import typing as t
+from functools import cached_property
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -13,7 +14,10 @@ from singer_sdk.helpers._batch import (
     BatchConfig,
     BatchFileFormat,
 )
-from singer_sdk.helpers._typing import conform_record_data_types
+from singer_sdk.helpers._typing import (
+    DatetimeErrorTreatmentEnum,
+    conform_record_data_types,
+)
 from singer_sdk.sinks import SQLSink
 
 from target_snowflake.connector import SnowflakeConnector
@@ -264,3 +268,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         Raises:
             MissingKeyPropertiesError: If record is missing one or more key properties.
         """
+
+    @cached_property
+    def datetime_error_treatment(self):
+        return DatetimeErrorTreatmentEnum(self.config["datetime_error_treatment"])

@@ -6,6 +6,7 @@ import logging.config
 
 import click
 from singer_sdk import typing as th
+from singer_sdk.helpers._typing import DatetimeErrorTreatmentEnum
 from singer_sdk.target_base import SQLTarget
 
 from target_snowflake.connector import SnowflakeTimestampType
@@ -141,6 +142,13 @@ class TargetSnowflake(SQLTarget):
                 "Whether to use raw stream names as table names instead of informal Singer convention as last "
                 "hyphen-separated part of stream name."
             ),
+        ),
+        th.Property(
+            "datetime_error_treatment",
+            th.StringType,
+            allowed_values=[t.value for t in DatetimeErrorTreatmentEnum],
+            default=DatetimeErrorTreatmentEnum.ERROR.value,
+            description="How invalid date-time values should be handled.",
         ),
     ).to_dict()
 
