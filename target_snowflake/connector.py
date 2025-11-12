@@ -742,7 +742,10 @@ class SnowflakeConnector(SQLConnector):
             #
             # https://docs.snowflake.com/en/sql-reference/identifiers-syntax#controlling-case-using-the-quoted-identifiers-ignore-case-parameter
 
-            return formatted.lower()
+            formatted = formatted.lower()
+
+            # Reserved words are returned as they exist/would be created as in Snowflake
+            return formatted.upper() if formatted in self.formatter.reserved_words else formatted
 
         # Identifiers that require quoting should be returned as-is when QUOTED_IDENTIFIERS_IGNORE_CASE is set to FALSE.
         return safe_formatted if safe else formatted
