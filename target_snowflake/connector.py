@@ -745,7 +745,9 @@ class SnowflakeConnector(SQLConnector):
             formatted = formatted.lower()
 
             # Reserved words are returned as they exist/would be created as in Snowflake
-            return formatted.upper() if formatted in self.formatter.reserved_words else formatted
+            if formatted in self.formatter.reserved_words:
+                formatted = formatted.upper()
+                safe_formatted = safe_formatted.upper()
 
         # Identifiers that require quoting should be returned as-is when QUOTED_IDENTIFIERS_IGNORE_CASE is set to FALSE.
         return safe_formatted if safe else formatted

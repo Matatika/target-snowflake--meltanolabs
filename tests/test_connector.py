@@ -150,7 +150,7 @@ def test_singer_decimal(connector: SnowflakeConnector):
         ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "EmailAddress", "emailaddress"),
         ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "EMAIL_ADDRESS", "email_address"),
         ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "EMAILADDRESS", "emailaddress"),
-        ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "user", "user"),
+        ({"normalise_casing": False, "quoted_identifiers_ignore_case": True}, "user", "USER"),
         ({"normalise_casing": True, "quoted_identifiers_ignore_case": False}, "email", "email"),
         ({"normalise_casing": True, "quoted_identifiers_ignore_case": False}, "email_address", "email_address"),
         ({"normalise_casing": True, "quoted_identifiers_ignore_case": False}, "emailAddress", "email_address"),
@@ -164,7 +164,7 @@ def test_singer_decimal(connector: SnowflakeConnector):
         ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "EmailAddress", "email_address"),
         ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "EMAIL_ADDRESS", "email_address"),
         ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "EMAILADDRESS", "emailaddress"),
-        ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "user", "user"),
+        ({"normalise_casing": True, "quoted_identifiers_ignore_case": True}, "user", "USER"),
     ],
 )
 @pytest.mark.usefixtures("mock_engine_connect")
