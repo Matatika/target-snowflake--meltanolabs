@@ -104,6 +104,10 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
 
         self.connector.table_cache.pop(self.full_table_name, None)
 
+        if self.config.get("load_method", "upsert") == "append_only":
+            self.logger.info("load_method=append_only: truncating %s", self.full_table_name)
+            self.connector.truncate_table(self.full_table_name)
+
     def conform_name(
         self,
         name: str,
@@ -199,8 +203,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
             )
             self.connector.create_file_format(file_format=file_format)
 
-            if self.key_properties:
-                # merge into destination table
+            if self.key_properties and self.config.get("load_method", "upsert") == "upsert":
                 record_count = self.connector.merge_from_stage(
                     full_table_name=full_table_name,
                     schema=self.schema,
