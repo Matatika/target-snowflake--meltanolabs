@@ -14,10 +14,7 @@ from singer_sdk.helpers._batch import (
     BatchConfig,
     BatchFileFormat,
 )
-from singer_sdk.helpers._typing import (
-    DatetimeErrorTreatmentEnum,
-    conform_record_data_types,
-)
+from singer_sdk.helpers._typing import DatetimeErrorTreatmentEnum
 from singer_sdk.sinks import SQLSink
 
 from target_snowflake.connector import SnowflakeConnector
@@ -145,18 +142,6 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         Returns:
             True if table exists, False if not, None if unsure or undetectable.
         """
-        # prepare records for serialization
-        processed_records = (
-            conform_record_data_types(
-                stream_name=self.stream_name,
-                record=rcd,
-                schema=schema,
-                level="RECURSIVE",
-                logger=self.logger,
-            )
-            for rcd in records
-        )
-
         # serialize to batch files and upload
         # TODO: support other batchers
         batcher = JSONLinesBatcher(
@@ -164,7 +149,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
             stream_name=self.stream_name,
             batch_config=self.batch_config,
         )
-        batches = batcher.get_batches(records=processed_records)
+        batches = batcher.get_batches(records=iter(records))
         for files in batches:
             self.insert_batch_files_via_internal_stage(
                 full_table_name=full_table_name,
@@ -261,6 +246,12 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
 
         with self.record_counter_metric as counter:
             counter.increment(record_count)
+
+    def _validate_and_parse(self, record: dict) -> dict:
+        # Skip timestamp string→object parsing. Records arrive from the tap as plain
+        # JSON-serialisable values; COPY INTO casts them at load time via $1:col::TYPE.
+        # Parsing here and re-stringifying in conform_record_data_types is pure waste.
+        return record
 
     # TODO: remove after https://github.com/meltano/sdk/issues/1819 is fixed
     def _singer_validate_message(self, record: dict) -> None:
