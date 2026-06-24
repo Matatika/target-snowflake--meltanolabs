@@ -104,6 +104,13 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
 
         self.connector.table_cache.pop(self.full_table_name, None)
 
+        self._file_format_name = (
+            f'{self.database_name}.{self.schema_name}."tf-{self.stream_name}"'
+        )
+        self.connector.create_file_format(file_format=self._file_format_name)
+
+    def clean_up(self) -> None:
+        self.connector.drop_file_format(file_format=self._file_format_name)
     def conform_name(
         self,
         name: str,
@@ -190,14 +197,9 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
             files: The batch files to process.
         """
         self.logger.info("Processing batch of files.")
+        sync_id = f"{self.stream_name}-{uuid4()}"
         try:
-            sync_id = f"{self.stream_name}-{uuid4()}"
-            file_format = f'{self.database_name}.{self.schema_name}."{sync_id}"'
             self.connector.put_batches_to_stage(sync_id=sync_id, files=files)
-            self.connector.prepare_schema(
-                self.conform_name(self.schema_name, object_type="schema"),  # type: ignore[arg-type]
-            )
-            self.connector.create_file_format(file_format=file_format)
 
             if self.key_properties:
                 # merge into destination table
@@ -205,7 +207,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
                     full_table_name=full_table_name,
                     schema=self.schema,
                     sync_id=sync_id,
-                    file_format=file_format,
+                    file_format=self._file_format_name,
                     key_properties=self.key_properties,
                 )
 
@@ -214,12 +216,11 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
                     full_table_name=full_table_name,
                     schema=self.schema,
                     sync_id=sync_id,
-                    file_format=file_format,
+                    file_format=self._file_format_name,
                 )
 
         finally:
             self.logger.debug("Cleaning up after batch processing")
-            self.connector.drop_file_format(file_format=file_format)
             self.connector.remove_staged_files(sync_id=sync_id)
             # clean up local files
             if self.config.get("clean_up_batch_files"):
