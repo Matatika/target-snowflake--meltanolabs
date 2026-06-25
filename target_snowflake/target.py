@@ -150,6 +150,19 @@ class TargetSnowflake(SQLTarget):
             default=DatetimeErrorTreatmentEnum.ERROR.value,
             description="How invalid date-time values should be handled.",
         ),
+        th.Property(
+            "load_method",
+            th.StringType,
+            allowed_values=["upsert", "overwrite"],
+            default="upsert",
+            description=(
+                "Controls how records are written to the destination table. "
+                "'upsert' (default) uses MERGE INTO, matching on key properties to update "
+                "existing rows and insert new ones. "
+                "'overwrite' truncates the table then uses COPY INTO, replacing all existing "
+                "rows — faster for initial loads but destructive if run on a populated table."
+            ),
+        ),
     ).to_dict()
 
     default_sink_class = SnowflakeSink

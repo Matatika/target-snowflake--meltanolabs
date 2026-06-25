@@ -104,6 +104,10 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
 
         self.connector.table_cache.pop(self.full_table_name, None)
 
+        if self.config.get("load_method", "upsert") == "overwrite":
+            self.logger.info("load_method=overwrite: truncating %s", self.full_table_name)
+            self.connector.truncate_table(self.full_table_name)
+
         self._file_format_name = (
             f'{self.database_name}.{self.schema_name}."tf-{self.stream_name}"'
         )
@@ -201,8 +205,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         try:
             self.connector.put_batches_to_stage(sync_id=sync_id, files=files)
 
-            if self.key_properties:
-                # merge into destination table
+            if self.key_properties and self.config.get("load_method", "upsert") == "upsert":
                 record_count = self.connector.merge_from_stage(
                     full_table_name=full_table_name,
                     schema=self.schema,
