@@ -583,7 +583,10 @@ class SnowflakeConnector(SQLConnector):
             )
             self.logger.debug("Copying with SQL: %s", copy_statement)
             result = conn.execute(copy_statement, **kwargs)
-            return result.rowcount
+            # COPY INTO rowcount = number of files, not rows.
+            # Fetch the result set and sum the rows_loaded column instead.
+            rows = result.fetchall()
+            return sum(r[3] for r in rows) if rows else result.rowcount
 
     def drop_file_format(self, file_format: str) -> None:
         """Drop a file format in the schema.
