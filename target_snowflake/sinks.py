@@ -108,8 +108,16 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
             self.logger.info("load_method=overwrite: truncating %s", self.full_table_name)
             self.connector.truncate_table(self.full_table_name)
 
+        # Use a unique name per sink instance. A static, stream-derived name is
+        # shared across overlapping sinks (e.g. when a SCHEMA message archives the
+        # old sink and creates a new one) and across concurrent target processes
+        # loading the same stream into the same schema. In those cases one owner's
+        # CREATE OR REPLACE / DROP FILE FORMAT clobbers a file format another sink
+        # is actively using, causing "File format ... does not exist" during
+        # COPY/MERGE. The uuid keeps each sink's file format isolated while still
+        # creating/dropping it only once per sink (not per batch).
         self._file_format_name = (
-            f'{self.database_name}.{self.schema_name}."tf-{self.stream_name}"'
+            f'{self.database_name}.{self.schema_name}."tf-{self.stream_name}-{uuid4()}"'
         )
         self.connector.create_file_format(file_format=self._file_format_name)
 
