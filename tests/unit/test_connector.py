@@ -59,6 +59,7 @@ def test_jsonschema_to_sql(connector: SnowflakeConnector, schema: dict, expected
     sql_type = connector.to_sql_type(schema)
     assert isinstance(sql_type, expected_type)
 
+
 @pytest.mark.parametrize(
     ("config", "expected_type"),
     [
@@ -118,6 +119,26 @@ def test_uuid_format(connector: SnowflakeConnector):
     sql_type = connector.to_sql_type({"type": "string", "format": "uuid"})
     assert isinstance(sql_type, sa.types.VARCHAR)
     assert sql_type.length == 36
+
+
+@pytest.mark.parametrize(
+    ("file_type", "expected_type_clause"),
+    [
+        (None, "type = 'JSON'"),  # default
+        ("JSON", "type = 'JSON'"),
+        ("PARQUET", "type = 'PARQUET'"),
+    ],
+)
+def test_get_file_format_statement(connector: SnowflakeConnector, file_type: str | None, expected_type_clause: str):
+    kwargs = {"file_format": "test_format"}
+    if file_type is not None:
+        kwargs["file_type"] = file_type
+
+    statement, params = connector._get_file_format_statement(**kwargs)  # noqa: SLF001
+
+    assert expected_type_clause in str(statement)
+    assert "test_format" in str(statement)
+    assert params == {}
 
 
 def test_singer_decimal(connector: SnowflakeConnector):

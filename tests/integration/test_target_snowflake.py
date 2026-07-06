@@ -94,7 +94,7 @@ def test_invalid_database():
     runner = TargetTestRunner(
         TargetSnowflake,
         config=INVALID_TEST_CONFIG,
-        input_filepath="tests/target_test_streams/existing_table.singer",
+        input_filepath="tests/integration/target_test_streams/existing_table.singer",
     )
     with pytest.raises(Exception):  # noqa: B017, PT011
         runner.sync_all()
