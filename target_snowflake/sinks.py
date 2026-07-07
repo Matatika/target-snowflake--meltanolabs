@@ -18,6 +18,7 @@ from singer_sdk.helpers._batch import (
 )
 from singer_sdk.helpers._typing import (
     DatetimeErrorTreatmentEnum,
+    TypeConformanceLevel,
     conform_record_data_types,
 )
 from singer_sdk.sinks import SQLSink
@@ -26,7 +27,8 @@ from target_snowflake.arrow_batch import ArrowEncoding, convert_arrow_manifest_t
 from target_snowflake.connector import SnowflakeConnector
 
 if t.TYPE_CHECKING:
-    from singer_sdk import PluginBase
+    from singer_sdk import Target
+    from singer_sdk.connectors.sql import FullyQualifiedName
 
 DEFAULT_BATCH_CONFIG = {
     "encoding": {"format": "jsonl", "compression": "gzip"},
@@ -41,7 +43,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
 
     def __init__(
         self,
-        target: PluginBase,
+        target: Target,
         stream_name: str,
         schema: dict,
         key_properties: list[str] | None,
@@ -96,12 +98,10 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
                 as_temp_table=False,
             )
         except Exception:
-            (
-                self.logger.exception(
-                    "Error creating %s %s",
-                    self.full_table_name,
-                    self.conform_schema(self.schema),
-                ),
+            self.logger.exception(
+                "Error creating %s %s",
+                self.full_table_name,
+                self.conform_schema(self.schema),
             )
             raise
 
@@ -157,7 +157,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
 
     def bulk_insert_records(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         schema: dict,
         records: t.Iterable[dict[str, t.Any]],
     ) -> int | None:
@@ -182,7 +182,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
                 stream_name=self.stream_name,
                 record=rcd,
                 schema=schema,
-                level="RECURSIVE",
+                level=TypeConformanceLevel.RECURSIVE,
                 logger=self.logger,
             )
             for rcd in records
@@ -207,7 +207,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
     # Custom methods to process batch files
 
     @property
-    def batch_config(self) -> BatchConfig | None:
+    def batch_config(self) -> BatchConfig:
         """Get batch configuration.
 
         Returns:
@@ -222,7 +222,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
 
     def insert_batch_files_via_internal_stage(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         files: t.Sequence[str],
         file_type: str = "JSON",
     ) -> int:
