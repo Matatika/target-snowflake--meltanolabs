@@ -35,18 +35,20 @@ from target_snowflake.snowflake_types import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
+    from sqlalchemy import Dialect
     from sqlalchemy.engine import Engine
+    from sqlalchemy.sql.compiler import IdentifierPreparer
 
 
 class SnowflakeFullyQualifiedName(FullyQualifiedName):
     def __init__(
         self,
         *,
-        table: str | None = None,
+        table: str = "",
         schema: str | None = None,
         database: str | None = None,
         delimiter: str = ".",
-        dialect: SnowflakeDialect,
+        dialect: Dialect,
     ) -> None:
         self.dialect = dialect
         super().__init__(table=table, schema=schema, database=database, delimiter=delimiter)
@@ -70,6 +72,7 @@ class SnowflakeAuthMethod(Enum):
     PASSWORD = 2
     KEY_PAIR = 3
 
+
 class SnowflakeTimestampType(str, Enum):
     """Supported Snowflake timestamp types."""
 
@@ -83,6 +86,7 @@ TIMESTAMP_TYPES = {
     SnowflakeTimestampType.TIMESTAMP_LTZ: TIMESTAMP_LTZ,
     SnowflakeTimestampType.TIMESTAMP_NTZ: TIMESTAMP_NTZ,
 }
+
 
 class SnowflakeConnector(SQLConnector):
     """Snowflake Target Connector.
@@ -101,7 +105,7 @@ class SnowflakeConnector(SQLConnector):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.table_cache: dict = {}
-        self.schema_cache: dict = {}
+        self.schema_cache: list[str] = []
         self._inspector: sqlalchemy.Inspector | None = None
         super().__init__(*args, **kwargs)
 
@@ -114,7 +118,7 @@ class SnowflakeConnector(SQLConnector):
 
     def get_table_columns(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         column_names: list[str] | None = None,
     ) -> dict[str, sqlalchemy.Column]:
         """Return a list of table columns.
@@ -280,12 +284,12 @@ class SnowflakeConnector(SQLConnector):
         return engine
 
     @cached_property
-    def formatter(self) -> SnowflakeIdentifierPreparer:
+    def formatter(self) -> IdentifierPreparer:
         return self._engine.dialect.identifier_preparer
 
     def prepare_column(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         column_name: str,
         sql_type: sqlalchemy.types.TypeEngine,
     ) -> None:
@@ -307,7 +311,7 @@ class SnowflakeConnector(SQLConnector):
 
     @staticmethod
     def get_column_rename_ddl(
-        table_name: str,
+        table_name: str | FullyQualifiedName,
         column_name: str,
         new_column_name: str,
     ) -> sqlalchemy.DDL:
@@ -324,7 +328,7 @@ class SnowflakeConnector(SQLConnector):
 
     @staticmethod
     def get_column_alter_ddl(
-        table_name: str,
+        table_name: str | FullyQualifiedName,
         column_name: str,
         column_type: sqlalchemy.types.TypeEngine,
     ) -> sqlalchemy.DDL:
@@ -376,7 +380,7 @@ class SnowflakeConnector(SQLConnector):
 
     # Custom SQL get methods
 
-    def _get_put_statement(self, sync_id: str, file_uri: str) -> tuple[text, dict]:  # noqa: ARG002
+    def _get_put_statement(self, sync_id: str, file_uri: str) -> tuple[sqlalchemy.TextClause, dict]:  # noqa: ARG002
         """Get Snowflake PUT statement."""
         return (text(f"put :file_uri '@~/target-snowflake/{sync_id}'"), {})
 
@@ -414,7 +418,7 @@ class SnowflakeConnector(SQLConnector):
 
     def _get_merge_from_stage_statement(  # noqa: ANN202
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         schema: dict,
         sync_id: str,
         file_format: str,
@@ -476,10 +480,14 @@ class SnowflakeConnector(SQLConnector):
             {},
         )
 
-    def _get_file_format_statement(self, file_format: str) -> tuple[sqlalchemy.TextClause, dict]:
+    def _get_file_format_statement(
+        self,
+        file_format: str,
+        file_type: str = "JSON",
+    ) -> tuple[sqlalchemy.TextClause, dict]:
         """Get Snowflake CREATE FILE FORMAT statement."""
         return (
-            text(f"create or replace file format {file_format} type = 'JSON' compression = 'AUTO'"),
+            text(f"create or replace file format {file_format} type = '{file_type}' compression = 'AUTO'"),
             {},
         )
 
@@ -516,15 +524,17 @@ class SnowflakeConnector(SQLConnector):
                 # See https://github.com/MeltanoLabs/target-snowflake/issues/87 for more information about this error
                 conn.execute(put_statement, {"file_uri": file_uri, **kwargs})
 
-    def create_file_format(self, file_format: str) -> None:
+    def create_file_format(self, file_format: str, file_type: str = "JSON") -> None:
         """Create a file format in the schema.
 
         Args:
             file_format: The name of the file format.
+            file_type: The Snowflake file format type, e.g. ``"JSON"`` or ``"PARQUET"``.
         """
         with self._connect() as conn, conn.begin():
             file_format_statement, kwargs = self._get_file_format_statement(
                 file_format=file_format,
+                file_type=file_type,
             )
             self.logger.debug(
                 "Creating file format with SQL: %s",
@@ -534,7 +544,7 @@ class SnowflakeConnector(SQLConnector):
 
     def merge_from_stage(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         schema: dict,
         sync_id: str,
         file_format: str,
@@ -561,7 +571,7 @@ class SnowflakeConnector(SQLConnector):
 
     def copy_from_stage(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         schema: dict,
         sync_id: str,
         file_format: str,
@@ -588,14 +598,14 @@ class SnowflakeConnector(SQLConnector):
             rows = result.fetchall()
             return sum(r[3] for r in rows) if rows else result.rowcount
 
-    def truncate_table(self, full_table_name: str) -> None:
+    def truncate_table(self, full_table_name: str | FullyQualifiedName) -> None:
         """Truncate a table.
 
         Args:
             full_table_name: The fully-qualified name of the table to truncate.
         """
         with self._connect() as conn, conn.begin():
-            conn.execute(text(f"truncate table {full_table_name}"))  # noqa: S608
+            conn.execute(text(f"truncate table {full_table_name}"))
 
     def drop_file_format(self, file_format: str) -> None:
         """Drop a file format in the schema.
@@ -674,7 +684,7 @@ class SnowflakeConnector(SQLConnector):
 
     def _adapt_column_type(
         self,
-        full_table_name: str,
+        full_table_name: str | FullyQualifiedName,
         column_name: str,
         sql_type: sqlalchemy.types.TypeEngine,
     ) -> None:
@@ -706,7 +716,7 @@ class SnowflakeConnector(SQLConnector):
 
     def get_fully_qualified_name(
         self,
-        table_name: str | None = None,
+        table_name: str,
         schema_name: str | None = None,
         db_name: str | None = None,
         delimiter: str = ".",

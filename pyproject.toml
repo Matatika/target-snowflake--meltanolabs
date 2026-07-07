@@ -22,6 +22,7 @@ snowflake-sqlalchemy = "==1.7.6"
 snowflake-connector-python = { version = "~=3.15", extras = ["secure-local-storage"] }
 sqlalchemy = "~=2.0.31"
 pyhumps = "^3.8.0"
+pyarrow = ">=17"
 
 [tool.poetry.dependencies.singer-sdk]
 version = "~=0.48.0"
@@ -58,7 +59,7 @@ known-first-party = ["target_snowflake"]
 required-imports = ["from __future__ import annotations"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "S608", "PLR2004", "ANN"]
+"tests/*" = ["S101", "S608", "PLR2004", "ANN", "INP001", "PTH110", "PTH112",]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
