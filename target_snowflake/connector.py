@@ -567,7 +567,13 @@ class SnowflakeConnector(SQLConnector):
             )
             self.logger.debug("Merging with SQL: %s", merge_statement)
             result = conn.execute(merge_statement, **kwargs)
-            return result.rowcount
+            # MERGE's rowcount, like COPY INTO's above, isn't reliable via the generic
+            # DBAPI/SQLAlchemy rowcount attribute - Snowflake's MERGE instead returns a
+            # single-row result set: ("number of rows inserted", "number of rows updated",
+            # "number of rows deleted"). Sum those instead of trusting result.rowcount,
+            # which silently undercounts.
+            row = result.fetchone()
+            return sum(row) if row is not None else result.rowcount
 
     def copy_from_stage(
         self,
