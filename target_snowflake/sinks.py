@@ -143,6 +143,12 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
         return self._file_formats[file_type]
 
     def clean_up(self) -> None:
+        # The base Sink.clean_up() calls this too, but overriding here (rather than
+        # super().clean_up()) drops it entirely -- force-flushing whatever record_count
+        # hasn't been logged yet (the Counter only auto-logs periodically, see
+        # singer_sdk.metrics.Counter) so it isn't silently lost when the sink shuts down.
+        # We won't need to do this in the SDK v0.55: https://github.com/meltano/sdk/pull/3697
+        self.record_counter_metric.exit()
         for file_format in self._file_formats.values():
             self.connector.drop_file_format(file_format=file_format)
 
