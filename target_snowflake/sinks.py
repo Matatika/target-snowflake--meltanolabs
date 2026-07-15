@@ -88,7 +88,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
                 self.conform_name(self.schema_name, object_type="schema"),
             )
 
-        self.connector.table_cache.pop(self.full_table_name, None)
+        self.connector.invalidate_table_cache(self.full_table_name)
 
         try:
             self.connector.prepare_table(
@@ -105,7 +105,7 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
             )
             raise
 
-        self.connector.table_cache.pop(self.full_table_name, None)
+        self.connector.invalidate_table_cache(self.full_table_name)
 
         if self.config.get("load_method", "upsert") == "overwrite":
             self.logger.info("load_method=overwrite: truncating %s", self.full_table_name)

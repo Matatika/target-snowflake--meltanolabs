@@ -7,9 +7,11 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+import sqlalchemy as sa
 from singer_sdk.helpers._batch import JSONLinesEncoding
 
 from target_snowflake.arrow_batch import ArrowEncoding
+from target_snowflake.connector import SnowflakeConnector
 from target_snowflake.sinks import SnowflakeSink
 
 
@@ -148,3 +150,42 @@ def test_process_arrow_batch_files_cleans_up_output_dir_even_on_error(fake_sink)
         SnowflakeSink._process_arrow_batch_files(fake_sink, ["file:///tmp/a.arrow"])  # noqa: SLF001
 
     assert not os.path.exists(captured_output_dir["path"])
+
+
+def test_setup_invalidates_cached_inspector():
+    """setup() must drop the connector's cached Inspector after creating the table.
+
+    snowflake-sqlalchemy memoises columns per schema on the Inspector, so a table
+    created here stays invisible to later reflection unless the Inspector is
+    dropped. That surfaced as NoSuchTableError in activate_version for every
+    stream after the first.
+    """
+    connector = SnowflakeConnector(
+        config={
+            "user": "test_user",
+            "password": "test_password",
+            "account": "test_account",
+            "database": "TEST_DATABASE",
+        },
+    )
+    connector._inspector = mock.Mock(spec=sa.Inspector)
+    connector.table_cache["DB.SCHEMA.TABLE"] = {"id": mock.Mock()}
+    connector.prepare_schema = mock.MagicMock()
+    connector.prepare_table = mock.MagicMock()
+
+    fake_sink = SimpleNamespace(
+        schema_name="SCHEMA",
+        full_table_name="DB.SCHEMA.TABLE",
+        schema={},
+        key_properties=[],
+        config={},
+        logger=mock.MagicMock(),
+        connector=connector,
+        conform_name=lambda name, object_type=None: name,  # noqa: ARG005
+        conform_schema=lambda schema: schema,
+    )
+
+    SnowflakeSink.setup(fake_sink)
+
+    assert connector._inspector is None
+    assert "DB.SCHEMA.TABLE" not in connector.table_cache

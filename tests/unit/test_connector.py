@@ -193,3 +193,37 @@ def test_format_identifier(connector: SnowflakeConnector, config: dict, identifi
     connector.config.update(config)
     formatted = connector.format_identifier(identifier)
     assert formatted == expected_formatted
+
+
+def test_invalidate_table_cache_drops_inspector(connector: SnowflakeConnector):
+    """Invalidating a table must drop the cached Inspector, not just table_cache.
+
+    snowflake-sqlalchemy memoises columns per schema on the Inspector, so
+    reusing it after a CREATE TABLE reflects the schema as it was before the
+    table existed and raises NoSuchTableError.
+    """
+    connector.table_cache["DB.SCHEMA.USERS"] = {"id": mock.Mock()}
+    connector.table_cache["DB.SCHEMA.POSTS"] = {"id": mock.Mock()}
+    connector._inspector = mock.Mock(spec=sa.Inspector)
+
+    connector.invalidate_table_cache("DB.SCHEMA.USERS")
+
+    assert "DB.SCHEMA.USERS" not in connector.table_cache
+    assert "DB.SCHEMA.POSTS" in connector.table_cache
+    assert connector._inspector is None
+
+
+def test_inspector_rebuilt_after_invalidation(connector: SnowflakeConnector):
+    """A fresh Inspector is built on next access, so reflection re-queries."""
+    connector._cached_engine = mock.Mock()
+
+    with mock.patch("sqlalchemy.inspect") as inspect_mock:
+        inspect_mock.side_effect = [mock.sentinel.stale, mock.sentinel.fresh]
+
+        assert connector.inspector is mock.sentinel.stale
+        assert connector.inspector is mock.sentinel.stale  # cached
+
+        connector.invalidate_table_cache("DB.SCHEMA.USERS")
+
+        assert connector.inspector is mock.sentinel.fresh
+        assert inspect_mock.call_count == 2
