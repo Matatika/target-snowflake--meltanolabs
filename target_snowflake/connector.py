@@ -402,9 +402,12 @@ class SnowflakeConnector(SQLConnector):
     @staticmethod
     def _format_column_selections(column_selections: list, format: str) -> str:  # noqa: A002
         if format == "json_casting":
+            # try_cast (rather than `::`) so one row with a value that doesn't fit the
+            # column's type (e.g. a stray "" in a numeric column, or a source type change
+            # upstream) becomes NULL for that cell instead of failing the whole statement.
             return ", ".join(
                 [
-                    f"$1:{col['clean_property_name']}::{col['sql_type']} as {col['clean_alias']}"
+                    f"try_cast($1:{col['clean_property_name']} as {col['sql_type']}) as {col['clean_alias']}"
                     for col in column_selections
                 ],
             )

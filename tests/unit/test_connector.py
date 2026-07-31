@@ -20,6 +20,8 @@ def connector():
         "account": "test_account",
         "database": "TEST_DATABASE",
         "timestamp_type": SnowflakeTimestampType.TIMESTAMP_NTZ,
+        "quoted_identifiers_ignore_case": False,
+        "normalise_casing": False,
     }
 
     return SnowflakeConnector(config=config)
@@ -113,6 +115,34 @@ def test_ipv6_format(connector: SnowflakeConnector):
     sql_type = connector.to_sql_type({"type": "string", "format": "ipv6"})
     assert isinstance(sql_type, sa.types.VARCHAR)
     assert sql_type.length == 45
+
+
+@pytest.mark.usefixtures("mock_engine_connect")
+def test_json_casting_uses_try_cast(connector: SnowflakeConnector):
+    """A bad value in one row/column should become NULL, not fail the whole MERGE/COPY."""
+    schema = {"properties": {"amount": {"type": ["integer", "null"]}}}
+    column_selections = connector._get_column_selections(schema)
+    selects = connector._format_column_selections(column_selections, "json_casting")
+
+    assert selects == "try_cast($1:amount as DECIMAL) as amount"
+    assert "::" not in selects
+
+
+@pytest.mark.usefixtures("mock_engine_connect")
+def test_merge_from_stage_statement_uses_try_cast(connector: SnowflakeConnector):
+    schema = {"properties": {"id": {"type": "integer"}, "amount": {"type": ["integer", "null"]}}}
+    statement, _ = connector._get_merge_from_stage_statement(
+        full_table_name="test_table",
+        schema=schema,
+        sync_id="sync-id",
+        file_format="test_format",
+        key_properties=["id"],
+    )
+
+    sql = str(statement)
+    assert "try_cast($1:id as DECIMAL)" in sql
+    assert "try_cast($1:amount as DECIMAL)" in sql
+    assert "::" not in sql
 
 
 def test_uuid_format(connector: SnowflakeConnector):
