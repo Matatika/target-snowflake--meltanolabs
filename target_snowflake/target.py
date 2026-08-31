@@ -123,6 +123,18 @@ class TargetSnowflake(SQLTarget):
             description="Snowflake timestamp type to use for date-time properties.",
         ),
         th.Property(
+            "uuid_format",
+            th.StringType,
+            allowed_values=["native", "string"],
+            default="string",
+            description=(
+                "Snowflake column type/value format for `format: uuid` string properties. "
+                "'string' (default) uses a STRING(36) column and writes the value as-is, preserving dashes. "
+                "'native' uses SQLAlchemy's native UUID type, which compiles to CHAR(32) on Snowflake and strips "
+                "dashes from the value."
+            ),
+        ),
+        th.Property(
             "quoted_identifiers_ignore_case",
             th.BooleanType,
             default=False,
