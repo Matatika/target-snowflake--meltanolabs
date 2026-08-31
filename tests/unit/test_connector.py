@@ -121,6 +121,12 @@ def test_uuid_format(connector: SnowflakeConnector):
     assert sql_type.length == 36
 
 
+def test_uuid_format_native(connector: SnowflakeConnector):
+    connector.config.update({"uuid_format": "native"})
+    sql_type = connector.to_sql_type({"type": "string", "format": "uuid"})
+    assert isinstance(sql_type, sa.types.Uuid)
+
+
 @pytest.mark.parametrize(
     ("file_type", "expected_type_clause"),
     [
