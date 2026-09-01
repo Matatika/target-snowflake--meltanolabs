@@ -16,10 +16,17 @@ from singer_sdk.helpers._batch import (
     BatchConfig,
     BatchFileFormat,
 )
+from singer_sdk.helpers._compat import (
+    date_fromisoformat,
+    datetime_fromisoformat,
+    time_fromisoformat,
+)
 from singer_sdk.helpers._typing import (
     DatetimeErrorTreatmentEnum,
     TypeConformanceLevel,
     conform_record_data_types,
+    get_datelike_property_type,
+    handle_invalid_timestamp_in_record,
 )
 from singer_sdk.sinks import SQLSink
 
@@ -347,3 +354,50 @@ class SnowflakeSink(SQLSink[SnowflakeConnector]):
     @cached_property
     def datetime_error_treatment(self):
         return DatetimeErrorTreatmentEnum(self.config["datetime_error_treatment"])
+
+    def _parse_timestamps_in_record(
+        self,
+        record: dict,
+        schema: dict,
+        treatment: DatetimeErrorTreatmentEnum,
+    ) -> None:
+        """Parse strings to datetime.datetime values, repairing or erroring on failure.
+
+        Attempts to parse every field that is of type date/datetime/time. If its value
+        is out of range, repair logic will be driven by the `treatment` input arg:
+        MAX, NULL, or ERROR.
+
+        Args:
+            record: Individual record in the stream.
+            schema: TODO
+            treatment: TODO
+        """
+        for key, value in record.items():
+            additional_properties = schema.get("additionalProperties", False)
+            if key not in schema["properties"]:
+                if value is not None and not additional_properties and key not in self._warned_missing_fields:
+                    self.logger.warning("No schema for record field '%s'", key)
+                    self._warned_missing_fields.add(key)
+                continue
+
+            if datelike_type := get_datelike_property_type(schema["properties"][key]):
+                date_val = value
+                try:
+                    if value is not None:
+                        if datelike_type == "time":
+                            date_val = time_fromisoformat(date_val)
+                        elif datelike_type == "date":
+                            date_val = date_fromisoformat(date_val)
+                        else:
+                            date_val = datetime_fromisoformat(date_val)
+                except (ValueError, TypeError) as ex:
+                    date_val = handle_invalid_timestamp_in_record(
+                        record,
+                        [key],
+                        date_val,
+                        datelike_type,
+                        ex,
+                        treatment,
+                        self.logger,
+                    )
+                record[key] = date_val
